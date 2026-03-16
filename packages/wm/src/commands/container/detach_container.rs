@@ -12,17 +12,6 @@ use crate::{
 /// fill the freed up space. Will flatten empty parent split containers.
 #[allow(clippy::needless_pass_by_value)]
 pub fn detach_container(child_to_remove: Container) -> anyhow::Result<()> {
-  // Flatten the parent split container if it'll be empty after removing
-  // the child.
-  if let Some(split_parent) = child_to_remove
-    .parent()
-    .and_then(|parent| parent.as_split().cloned())
-  {
-    if split_parent.child_count() == 1 {
-      flatten_split_container(split_parent)?;
-    }
-  }
-
   let parent = child_to_remove.parent().context("No parent.")?;
 
   parent
@@ -52,6 +41,14 @@ pub fn detach_container(child_to_remove: Container) -> anyhow::Result<()> {
 
       let size_delta = resize_factor * child_to_remove.tiling_size();
       sibling.set_tiling_size(sibling.tiling_size() + size_delta);
+    }
+  }
+
+  // Flatten the parent split container if it has 1 or fewer children left.
+  // This prevents redundant split containers from remaining in the tree.
+  if let Some(split_parent) = parent.as_split() {
+    if split_parent.child_count() <= 1 {
+      flatten_split_container(split_parent.clone())?;
     }
   }
 

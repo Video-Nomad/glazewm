@@ -25,11 +25,10 @@ pub fn flatten_child_split_containers(
       .collect::<Vec<_>>();
 
     if tiling_children.len() == 1 {
-      // Handle case where the parent is a split container and has a
       // single split container child.
       if let Some(split_child) = tiling_children[0].as_split() {
         flatten_split_container(split_child.clone())?;
-        parent.set_tiling_direction(parent.tiling_direction().inverse());
+        parent.set_tiling_direction(split_child.tiling_direction());
       }
     } else {
       let split_children = tiling_children
@@ -40,16 +39,6 @@ pub fn flatten_child_split_containers(
       for split_child in split_children.iter().filter(|split_child| {
         split_child.tiling_direction() == parent.tiling_direction()
       }) {
-        // Additionally flatten redundant top-level split containers in
-        // the child.
-        if split_child.child_count() == 1 {
-          if let Some(split_grandchild) =
-            split_child.children()[0].as_split()
-          {
-            flatten_split_container(split_grandchild.clone())?;
-          }
-        }
-
         flatten_split_container(split_child.clone())?;
       }
     }

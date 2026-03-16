@@ -124,7 +124,16 @@ pub fn move_container_within_tree(
   // For example, in the layout V[1 H[2]] where container 1 is moved down
   // to become V[H[1 2]], this will then need to be flattened to V[1 2].
   for ancestor in ancestors.iter().rev() {
-    flatten_child_split_containers(ancestor)?;
+    // The ancestor might have been removed/flattened during the move
+    // operation (e.g. if it became empty). Only flatten if it's still
+    // in the tree.
+    let is_attached = ancestor.parent().is_some_and(|parent| {
+      parent.children().iter().any(|c| c.id() == ancestor.id())
+    });
+
+    if is_attached || ancestor.is_root() {
+      flatten_child_split_containers(ancestor)?;
+    }
   }
 
   if container_to_move.has_focus(None) {

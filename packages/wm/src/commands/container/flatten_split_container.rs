@@ -34,9 +34,9 @@ pub fn flatten_split_container(
 
   // Insert child at its original index in the parent.
   for (child_index, child) in updated_children.enumerate() {
-    parent
-      .borrow_children_mut()
-      .insert(index + child_index, child);
+    let target_index =
+      (index + child_index).clamp(0, parent.child_count());
+    parent.borrow_children_mut().insert(target_index, child);
   }
 
   // Insert child at its original focus index in the parent.
@@ -45,9 +45,12 @@ pub fn flatten_split_container(
     .iter()
     .enumerate()
   {
+    let parent_focus_len = parent.borrow_child_focus_order().len();
+    let target_focus_index =
+      (focus_index + child_focus_index).clamp(0, parent_focus_len);
     parent
       .borrow_child_focus_order_mut()
-      .insert(focus_index + child_focus_index, *child_id);
+      .insert(target_focus_index, *child_id);
   }
 
   // Remove the split container from the tree.

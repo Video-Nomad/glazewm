@@ -219,7 +219,6 @@ fn drop_as_tiling_window(
     })?
     .context("No nearest container.")?;
 
-  let tiling_direction = target_parent.tiling_direction();
   let drop_position =
     drop_position(&mouse_pos, &nearest_container.to_rect()?);
 
@@ -229,6 +228,16 @@ fn drop_as_tiling_window(
     state,
     config,
   )?;
+
+  // Refresh the parent of the nearest container, as the tree structure
+  // might have changed during `update_window_state` (e.g. if the
+  // original parent was flattened).
+  let target_parent = nearest_container
+    .parent()
+    .and_then(|c| c.as_direction_container().ok())
+    .unwrap_or(target_parent);
+
+  let tiling_direction = target_parent.tiling_direction();
 
   let should_split = nearest_container.is_tiling_window()
     && match tiling_direction {
