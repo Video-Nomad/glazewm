@@ -19,6 +19,11 @@ pub fn toggle_tiling_direction(
       toggle_window_direction(tiling_window, config)
     }
     Container::Workspace(workspace) => {
+      // In Dwindle mode, tiling direction is determined automatically.
+      if workspace.config().tiling_mode == wm_common::TilingMode::Dwindle {
+        return Ok(());
+      }
+
       workspace
         .set_tiling_direction(workspace.tiling_direction().inverse());
 
@@ -44,12 +49,22 @@ fn toggle_window_direction(
     .direction_container()
     .context("No direction container.")?;
 
+  if let Some(workspace) = tiling_window.workspace() {
+    if workspace.config().tiling_mode == wm_common::TilingMode::Dwindle {
+      return Ok(parent);
+    }
+  }
+
   // If the window is an only child, then either change the tiling
   // direction of its parent workspace or flatten its parent split
   // container.
   if tiling_window.tiling_siblings().count() == 0 {
     return match parent {
       DirectionContainer::Workspace(workspace) => {
+        if workspace.config().tiling_mode == wm_common::TilingMode::Dwindle {
+          return Ok(workspace.into());
+        }
+
         workspace
           .set_tiling_direction(workspace.tiling_direction().inverse());
 

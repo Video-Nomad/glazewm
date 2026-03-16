@@ -4,10 +4,14 @@ use wm_common::WindowState;
 
 use crate::{
   commands::container::{
-    move_container_within_tree, replace_container, resize_tiling_container,
+    move_container_within_tree, replace_container,
+    resize_tiling_container, wrap_in_split_container,
   },
-  models::{Container, InsertionTarget, WindowContainer},
-  traits::{CommonGetters, TilingSizeGetters, WindowGetters},
+  models::{Container, InsertionTarget, SplitContainer, WindowContainer},
+  traits::{
+    CommonGetters, PositionGetters, TilingDirectionGetters,
+    TilingSizeGetters, WindowGetters,
+  },
   user_config::UserConfig,
   wm_state::WmState,
 };
@@ -80,6 +84,49 @@ fn set_tiling(
     // Default to inserting at the end of the workspace.
     .unwrap_or((workspace.clone().into(), workspace.child_count()));
 
+  // In Dwindle mode without a saved insertion target, wrap the sibling at
+  // the target position in a new split container. This must happen before
+  // the window is placed in the tree to avoid incorrect sibling counts.
+  let is_dwindle =
+    workspace.config().tiling_mode == wm_common::TilingMode::Dwindle;
+
+  let dwindle_sibling = if is_dwindle && insertion_target.is_none() {
+    target_parent
+      .tiling_children()
+      .nth(target_index.saturating_sub(1))
+  } else {
+    None
+  };
+
+  let (target_parent, target_index) = if let Some(sibling) = dwindle_sibling {
+    let parent_direction = target_parent
+      .as_direction_container()
+      .map(|dc| dc.tiling_direction());
+
+    let mut split_direction = parent_direction
+      .ok()
+      .map_or(wm_common::TilingDirection::Horizontal, |d| d.inverse());
+
+    // Choose split direction based on the sibling's aspect ratio:
+    // wide windows split horizontally, tall windows vertically.
+    if let Ok(rect) = sibling.to_rect() {
+      if rect.width() > rect.height() {
+        split_direction = wm_common::TilingDirection::Horizontal;
+      } else {
+        split_direction = wm_common::TilingDirection::Vertical;
+      }
+    }
+
+    let split_container =
+      SplitContainer::new(split_direction, config.value.gaps.clone());
+
+    wrap_in_split_container(&split_container, &target_parent, &[sibling])?;
+
+    (split_container.into(), 1)
+  } else {
+    (target_parent, target_index)
+  };
+
   let tiling_window = window.to_tiling(config.value.gaps.clone());
 
   // Replace the original window with the created tiling window.
@@ -108,9 +155,13 @@ fn set_tiling(
     resize_tiling_container(&tiling_window.clone().into(), target_size);
   }
 
+  let current_parent = tiling_window
+    .parent()
+    .unwrap_or_else(|| target_parent.clone());
+
   state
     .pending_sync
-    .queue_containers_to_redraw(target_parent.tiling_children())
+    .queue_containers_to_redraw(current_parent.tiling_children())
     .queue_workspace_to_reorder(workspace);
 
   Ok(tiling_window.into())

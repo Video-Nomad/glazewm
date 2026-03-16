@@ -6,7 +6,7 @@ use tracing::Level;
 use uuid::Uuid;
 use wm_platform::{Delta, Direction, LengthValue, OpacityValue};
 
-use crate::TilingDirection;
+use crate::{TilingDirection, TilingMode};
 
 const VERSION: &str = env!("VERSION_NUMBER");
 
@@ -431,4 +431,7 @@ pub struct InvokeUpdateWorkspaceConfig {
 
   #[clap(long)]
   pub keep_alive: Option<bool>,
+
+  #[clap(long)]
+  pub tiling_mode: Option<TilingMode>,
 }

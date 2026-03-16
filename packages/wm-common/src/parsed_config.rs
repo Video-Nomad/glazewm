@@ -4,7 +4,7 @@ use wm_platform::{
   RectDelta,
 };
 
-use crate::app_command::InvokeCommand;
+use crate::{InvokeCommand, TilingMode};
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(default, rename_all(serialize = "camelCase"))]
@@ -385,6 +385,9 @@ pub struct WorkspaceConfig {
 
   #[serde(default = "default_bool::<false>")]
   pub keep_alive: bool,
+
+  #[serde(default)]
+  pub tiling_mode: TilingMode,
 }
 
 /// Helper function for setting a default value for a boolean field.

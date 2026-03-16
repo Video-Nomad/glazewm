@@ -234,9 +234,21 @@ impl IpcServer {
             .and_then(|focused| focused.direction_container())
             .context("No direction container.")?;
 
+          let tiling_direction = if wm
+            .state
+            .focused_container()
+            .and_then(|c| c.workspace())
+            .is_some_and(|w| {
+              w.config().tiling_mode == wm_common::TilingMode::Dwindle
+            }) {
+            wm_common::TilingDirection::Horizontal
+          } else {
+            direction_container.tiling_direction()
+          };
+
           ClientResponseData::TilingDirection(TilingDirectionData {
             direction_container: direction_container.to_dto()?,
-            tiling_direction: direction_container.tiling_direction(),
+            tiling_direction,
           })
         }
         QueryCommand::Paused => {

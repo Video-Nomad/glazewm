@@ -5,14 +5,18 @@ use wm_platform::{NativeWindow, RectDelta};
 
 use crate::{
   commands::{
-    container::{attach_container, set_focused_descendant},
+    container::{
+      attach_container, set_focused_descendant, wrap_in_split_container,
+    },
     window::run_window_rules,
   },
   models::{
     Container, Monitor, NativeWindowProperties, NonTilingWindow,
-    TilingWindow, WindowContainer,
+    SplitContainer, TilingWindow, WindowContainer,
   },
-  traits::{CommonGetters, PositionGetters, WindowGetters},
+  traits::{
+    CommonGetters, PositionGetters, TilingDirectionGetters, WindowGetters,
+  },
   user_config::UserConfig,
   wm_state::WmState,
 };
@@ -173,7 +177,7 @@ fn create_window(
   // provided), otherwise, add as a sibling of the focused container.
   let (target_parent, target_index) = match target_parent {
     Some(parent) => (parent, 0),
-    None => insertion_target(&window_state, state)?,
+    None => insertion_target(&window_state, state, config)?,
   };
 
   let target_workspace =
@@ -322,6 +326,7 @@ fn window_state_to_create(
 fn insertion_target(
   window_state: &WindowState,
   state: &WmState,
+  config: &UserConfig,
 ) -> anyhow::Result<(Container, usize)> {
   let focused_container =
     state.focused_container().context("No focused container.")?;
@@ -340,6 +345,43 @@ fn insertion_target(
     };
 
     if let Some(sibling) = sibling {
+      if focused_workspace.config().tiling_mode
+        == wm_common::TilingMode::Dwindle
+      {
+        if let Ok(tiling_sibling) = sibling.as_tiling_container() {
+          let parent = sibling.parent().context("No parent.")?;
+          let parent_direction = parent
+            .as_direction_container()
+            .context("Parent has no direction.")?
+            .tiling_direction();
+
+          let mut split_direction = parent_direction.inverse();
+
+          // If the window's aspect ratio suggests it's wide (width >
+          // height), we should split horizontally (side-by-side)
+          // to create two normal-aspect windows. If it's tall,
+          // split vertically (top-bottom).
+          if let Ok(rect) = sibling.to_rect() {
+            if rect.width() > rect.height() {
+              split_direction = wm_common::TilingDirection::Horizontal;
+            } else {
+              split_direction = wm_common::TilingDirection::Vertical;
+            }
+          }
+          let gaps_config = config.value.gaps.clone();
+          let split_container =
+            SplitContainer::new(split_direction, gaps_config);
+
+          wrap_in_split_container(
+            &split_container,
+            &parent,
+            &[tiling_sibling],
+          )?;
+
+          return Ok((split_container.into(), 1));
+        }
+      }
+
       return Ok((
         sibling.parent().context("No parent.")?,
         sibling.index() + 1,

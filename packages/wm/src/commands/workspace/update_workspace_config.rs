@@ -38,6 +38,10 @@ pub fn update_workspace_config(
       .bind_to_monitor
       .or(current_config.bind_to_monitor),
     keep_alive: new_config.keep_alive.unwrap_or(current_config.keep_alive),
+    tiling_mode: new_config
+      .tiling_mode
+      .clone()
+      .unwrap_or(current_config.tiling_mode),
   };
 
   workspace.set_config(updated_config);
