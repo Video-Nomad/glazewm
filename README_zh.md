@@ -281,18 +281,20 @@ window_rules:
 
 ```yaml
 window_effects:
-  # 应用于聚焦窗口的视觉效果。
-  focused_window:
+  # 应用于平铺窗口的视觉效果。
+  tiled_windows:
     # 用彩色边框突出显示窗口。
     border:
       enabled: true
-      color: "#0000ff"
+      color_focused: "#0000ff"
+      color_other: "#d3d3d3"
 
-  # 应用于非聚焦窗口的视觉效果。
-  other_windows:
+  # 应用于浮动窗口的视觉效果。
+  floating_windows:
     border:
       enabled: false
-      color: "#d3d3d3"
+      color_focused: "#0000ff"
+      color_other: "#d3d3d3"
 ```
 
 ### 配置：窗口行为

@@ -231,11 +231,11 @@ impl Default for FullscreenStateConfig {
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(default, rename_all(serialize = "camelCase"))]
 pub struct WindowEffectsConfig {
-  /// Visual effects to apply to the focused window.
-  pub focused_window: WindowEffectConfig,
+  /// Visual effects to apply to tiled windows.
+  pub tiled_windows: WindowEffectConfig,
 
-  /// Visual effects to apply to non-focused windows.
-  pub other_windows: WindowEffectConfig,
+  /// Visual effects to apply to floating windows.
+  pub floating_windows: WindowEffectConfig,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
@@ -260,18 +260,27 @@ pub struct BorderEffectConfig {
   /// Whether to enable the effect.
   pub enabled: bool,
 
-  /// Color of the window border.
-  pub color: Color,
+  /// Color of the border when the window is focused.
+  pub color_focused: Color,
+
+  /// Color of the border when the window is not focused.
+  pub color_other: Color,
 }
 
 impl Default for BorderEffectConfig {
   fn default() -> Self {
     BorderEffectConfig {
       enabled: false,
-      color: Color {
+      color_focused: Color {
         r: 140,
         g: 190,
         b: 255,
+        a: 255,
+      },
+      color_other: Color {
+        r: 161,
+        g: 161,
+        b: 161,
         a: 255,
       },
     }

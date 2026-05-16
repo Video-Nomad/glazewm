@@ -48,13 +48,7 @@ pub fn handle_window_focused(
     }
   }
 
-  // Focus effect should be updated for any change in focus that shouldn't
-  // be overwritten. The incoming focus event at this point is either:
-  //  1. WM's focus container (window or workspace). This is the desktop
-  //     window in the case of a workspace.
-  //  2. An ignored window.
-  //  3. A window that received manual focus.
-  state.pending_sync.queue_focused_effect_update();
+  state.pending_sync.queue_border_focus_update();
 
   if let Some(window) = found_window {
     let workspace = window.workspace().context("No workspace")?;

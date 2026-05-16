@@ -1,7 +1,7 @@
 use anyhow::Context;
 use tracing::{info, warn};
 #[cfg(target_os = "windows")]
-use wm_common::{HideMethod, ParsedConfig};
+use wm_common::{HideMethod, ParsedConfig, WindowState};
 use wm_common::{WindowRuleEvent, WmEvent};
 #[cfg(target_os = "windows")]
 use wm_platform::NativeWindowWindowsExt;
@@ -161,32 +161,33 @@ fn update_window_effects(
   state: &mut WmState,
   config: &UserConfig,
 ) -> anyhow::Result<()> {
-  let focused_container =
-    state.focused_container().context("No focused container.")?;
-
   let window_effects = &config.value.window_effects;
   let old_window_effects = &old_config.window_effects;
 
   // Window border effects are left at system defaults if disabled in the
   // config. However, when transitioning from colored borders to having
   // them disabled, it's best to reset to the system defaults.
-  if !window_effects.focused_window.border.enabled
-    && old_window_effects.focused_window.border.enabled
+  if !window_effects.tiled_windows.border.enabled
+    && old_window_effects.tiled_windows.border.enabled
   {
-    if let Ok(window) = focused_container.as_window_container() {
+    for window in state
+      .windows()
+      .into_iter()
+      .filter(|window| window.state() == WindowState::Tiling)
+    {
       _ = window.native().set_border_color(None);
     }
   }
 
-  if !window_effects.other_windows.border.enabled
-    && old_window_effects.other_windows.border.enabled
+  if !window_effects.floating_windows.border.enabled
+    && old_window_effects.floating_windows.border.enabled
   {
-    let unfocused_windows = state
+    let floating_windows = state
       .windows()
       .into_iter()
-      .filter(|window| window.id() != focused_container.id());
+      .filter(|window| matches!(window.state(), WindowState::Floating(_)));
 
-    for window in unfocused_windows {
+    for window in floating_windows {
       _ = window.native().set_border_color(None);
     }
   }

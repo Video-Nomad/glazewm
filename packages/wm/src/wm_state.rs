@@ -42,12 +42,10 @@ pub struct WmState {
   /// workspace focus.
   pub recent_workspace_name: Option<String>,
 
-  /// The previously focused window that had focus effects applied.
+  /// The previously focused window that had a focused border applied.
   ///
-  /// Used to efficiently update window effects by only removing focus
-  /// effects from the previous window rather than all windows when focus
-  /// changes.
-  pub prev_effects_window: Option<WindowContainer>,
+  /// Used to efficiently update border colors on focus changes.
+  pub prev_border_effects_window: Option<WindowContainer>,
 
   /// Time since a previously focused window was unmanaged or minimized.
   ///
@@ -87,7 +85,7 @@ impl WmState {
       root_container: RootContainer::new(),
       dispatcher,
       pending_sync: PendingSync::default(),
-      prev_effects_window: None,
+      prev_border_effects_window: None,
       recent_workspace_name: None,
       unmanaged_or_minimized_timestamp: None,
       binding_modes: Vec::new(),

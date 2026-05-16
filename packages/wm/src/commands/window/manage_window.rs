@@ -66,11 +66,12 @@ pub fn manage_window(
     // already focused.
     state.pending_sync.queue_focus_change();
 
-    // Normally, a `PlatformEvent::WindowFocused` event is what triggers
-    // focus effects and workspace reordering to be applied. However, when
-    // a window is first launched, this event can come before the
-    // window is managed, and so we need to force an update here.
-    state.pending_sync.queue_focused_effect_update();
+    // Native events that update effects can arrive before the window is
+    // managed, so force an update here.
+    state
+      .pending_sync
+      .queue_window_effect_update(window.clone())
+      .queue_border_focus_update();
     state.pending_sync.queue_workspace_to_reorder(
       window.workspace().context("No workspace.")?,
     );

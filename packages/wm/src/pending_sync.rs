@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use uuid::Uuid;
 
 use crate::{
-  models::{Container, Workspace},
+  models::{Container, WindowContainer, Workspace},
   traits::CommonGetters,
 };
 
@@ -21,8 +21,11 @@ pub struct PendingSync {
   /// container.
   needs_focus_update: bool,
 
-  /// Whether window effect for the focused window should be updated.
-  needs_focused_effect_update: bool,
+  /// Windows where effects should be updated.
+  windows_to_update_effects: HashMap<Uuid, WindowContainer>,
+
+  /// Whether border colors should be updated after focus changes.
+  needs_border_focus_update: bool,
 
   /// Whether window effects for all windows should be updated.
   needs_all_effects_update: bool,
@@ -37,7 +40,8 @@ impl PendingSync {
     !self.containers_to_redraw.is_empty()
       || !self.workspaces_to_reorder.is_empty()
       || self.needs_focus_update
-      || self.needs_focused_effect_update
+      || !self.windows_to_update_effects.is_empty()
+      || self.needs_border_focus_update
       || self.needs_all_effects_update
       || self.needs_cursor_jump
   }
@@ -46,7 +50,8 @@ impl PendingSync {
     self.containers_to_redraw.clear();
     self.workspaces_to_reorder.clear();
     self.needs_focus_update = false;
-    self.needs_focused_effect_update = false;
+    self.windows_to_update_effects.clear();
+    self.needs_border_focus_update = false;
     self.needs_all_effects_update = false;
     self.needs_cursor_jump = false;
     self
@@ -101,8 +106,18 @@ impl PendingSync {
     self
   }
 
-  pub fn queue_focused_effect_update(&mut self) -> &mut Self {
-    self.needs_focused_effect_update = true;
+  /// Queues a window for effect updates.
+  pub fn queue_window_effect_update(
+    &mut self,
+    window: WindowContainer,
+  ) -> &mut Self {
+    self.windows_to_update_effects.insert(window.id(), window);
+    self
+  }
+
+  /// Queues focused and previously focused windows for border updates.
+  pub fn queue_border_focus_update(&mut self) -> &mut Self {
+    self.needs_border_focus_update = true;
     self
   }
 
@@ -120,12 +135,13 @@ impl PendingSync {
     self.needs_focus_update
   }
 
-  pub fn needs_focused_effect_update(&self) -> bool {
-    self.needs_focused_effect_update
-  }
-
   pub fn needs_all_effects_update(&self) -> bool {
     self.needs_all_effects_update
+  }
+
+  /// Returns whether border colors should be updated after focus changes.
+  pub fn needs_border_focus_update(&self) -> bool {
+    self.needs_border_focus_update
   }
 
   pub fn needs_cursor_jump(&self) -> bool {
@@ -134,6 +150,13 @@ impl PendingSync {
 
   pub fn containers_to_redraw(&self) -> &HashMap<Uuid, Container> {
     &self.containers_to_redraw
+  }
+
+  /// Returns windows where effects should be updated.
+  pub fn windows_to_update_effects(
+    &self,
+  ) -> &HashMap<Uuid, WindowContainer> {
+    &self.windows_to_update_effects
   }
 
   pub fn workspaces_to_reorder(&self) -> &Vec<Workspace> {

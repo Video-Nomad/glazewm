@@ -1,9 +1,9 @@
+use std::borrow::Cow;
+
 use anyhow::Context;
-#[cfg(target_os = "windows")]
-use wm_common::WindowEffectConfig;
 use wm_common::{
   CursorJumpTrigger, DisplayState, HideCorner, HideMethod, UniqueExt,
-  WindowState, WmEvent,
+  WindowEffectConfig, WindowState, WmEvent,
 };
 #[cfg(target_os = "windows")]
 use wm_platform::NativeWindowWindowsExt;
@@ -41,35 +41,47 @@ pub fn platform_sync(
     jump_cursor(focused_container.clone(), state, config)?;
   }
 
-  if state.pending_sync.needs_focused_effect_update()
-    || state.pending_sync.needs_all_effects_update()
+  if state.pending_sync.needs_all_effects_update()
+    || state.pending_sync.needs_border_focus_update()
+    || !state.pending_sync.windows_to_update_effects().is_empty()
   {
-    // Keep reference to the previous window that had focus effects
-    // applied.
-    let prev_effects_window = state.prev_effects_window.clone();
-
-    if let Ok(window) = focused_container.as_window_container() {
-      apply_window_effects(&window, true, config);
-      state.prev_effects_window = Some(window.clone());
-    } else {
-      state.prev_effects_window = None;
-    }
-
-    // Get windows that should have the unfocused border applied to them.
-    // For the sake of performance, we only update the border of the
-    // previously focused window. If the `reset_window_effects` flag is
-    // passed, the unfocused border is applied to all unfocused windows.
-    let unfocused_windows =
+    let focused_window = focused_container.as_window_container().ok();
+    let mut windows_to_update =
       if state.pending_sync.needs_all_effects_update() {
         state.windows()
       } else {
-        prev_effects_window.into_iter().collect()
-      }
-      .into_iter()
-      .filter(|window| window.id() != focused_container.id());
+        state
+          .pending_sync
+          .windows_to_update_effects()
+          .values()
+          .cloned()
+          .collect()
+      };
 
-    for window in unfocused_windows {
-      apply_window_effects(&window, false, config);
+    if state.pending_sync.needs_all_effects_update()
+      || state.pending_sync.needs_border_focus_update()
+    {
+      if let Some(prev_window) = state.prev_border_effects_window.clone() {
+        windows_to_update.push(prev_window);
+      }
+
+      if let Some(window) = &focused_window {
+        windows_to_update.push(window.clone());
+        state.prev_border_effects_window = Some(window.clone());
+      } else {
+        state.prev_border_effects_window = None;
+      }
+    }
+
+    for window in windows_to_update
+      .into_iter()
+      .unique_by(|window| window.id())
+    {
+      let is_focused = focused_window
+        .as_ref()
+        .is_some_and(|focused_window| focused_window.id() == window.id());
+
+      apply_window_effects(&window, is_focused, config);
     }
   }
 
@@ -512,6 +524,7 @@ fn apply_window_effects(
   // LINT: `window` is only used on Windows.
   #[cfg_attr(not(target_os = "windows"), allow(unused_variables))]
   window: &WindowContainer,
+  #[cfg_attr(not(target_os = "windows"), allow(unused_variables))]
   is_focused: bool,
   config: &UserConfig,
 ) {
@@ -519,49 +532,56 @@ fn apply_window_effects(
 
   // LINT: `effect_config` is only used on Windows.
   #[cfg_attr(not(target_os = "windows"), allow(unused_variables))]
-  let effect_config = if is_focused {
-    &window_effects.focused_window
-  } else {
-    &window_effects.other_windows
+  let effect_config = match window.state() {
+    WindowState::Tiling => Cow::Borrowed(&window_effects.tiled_windows),
+    WindowState::Floating(_) => {
+      Cow::Borrowed(&window_effects.floating_windows)
+    }
+    _ => Cow::Owned(WindowEffectConfig::default()),
   };
 
-  // Skip if both focused + non-focused window effects are disabled.
+  // Skip if both tiled + floating window effects are disabled.
   #[cfg(target_os = "windows")]
-  if window_effects.focused_window.border.enabled
-    || window_effects.other_windows.border.enabled
+  if window_effects.tiled_windows.border.enabled
+    || window_effects.floating_windows.border.enabled
   {
-    apply_border_effect(window, effect_config);
+    apply_border_effect(window, is_focused, &effect_config);
   }
 
   #[cfg(target_os = "windows")]
-  if window_effects.focused_window.hide_title_bar.enabled
-    || window_effects.other_windows.hide_title_bar.enabled
+  if window_effects.tiled_windows.hide_title_bar.enabled
+    || window_effects.floating_windows.hide_title_bar.enabled
   {
-    apply_hide_title_bar_effect(window, effect_config);
+    apply_hide_title_bar_effect(window, &effect_config);
   }
 
   #[cfg(target_os = "windows")]
-  if window_effects.focused_window.corner_style.enabled
-    || window_effects.other_windows.corner_style.enabled
+  if window_effects.tiled_windows.corner_style.enabled
+    || window_effects.floating_windows.corner_style.enabled
   {
-    apply_corner_effect(window, effect_config);
+    apply_corner_effect(window, &effect_config);
   }
 
   #[cfg(target_os = "windows")]
-  if window_effects.focused_window.transparency.enabled
-    || window_effects.other_windows.transparency.enabled
+  if window_effects.tiled_windows.transparency.enabled
+    || window_effects.floating_windows.transparency.enabled
   {
-    apply_transparency_effect(window, effect_config);
+    apply_transparency_effect(window, &effect_config);
   }
 }
 
 #[cfg(target_os = "windows")]
 fn apply_border_effect(
   window: &WindowContainer,
+  is_focused: bool,
   effect_config: &WindowEffectConfig,
 ) {
   let border_color = if effect_config.border.enabled {
-    Some(&effect_config.border.color)
+    Some(if is_focused {
+      &effect_config.border.color_focused
+    } else {
+      &effect_config.border.color_other
+    })
   } else {
     None
   };

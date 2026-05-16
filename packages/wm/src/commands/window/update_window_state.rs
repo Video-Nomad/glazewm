@@ -33,10 +33,16 @@ pub fn update_window_state(
 
   info!("Updating window state: {:?}.", target_state);
 
-  match target_state {
+  let updated_window = match target_state {
     WindowState::Tiling => set_tiling(&window, state, config),
     _ => set_non_tiling(window, target_state, state),
-  }
+  }?;
+
+  state
+    .pending_sync
+    .queue_window_effect_update(updated_window.clone());
+
+  Ok(updated_window)
 }
 
 /// Updates the state of a window to be `WindowState::Tiling`.

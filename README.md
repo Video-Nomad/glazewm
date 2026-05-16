@@ -289,18 +289,20 @@ Visual effects can be applied to windows via the `window_effects` option. Curren
 
 ```yaml
 window_effects:
-  # Visual effects to apply to the focused window.
-  focused_window:
+  # Visual effects to apply to tiled windows.
+  tiled_windows:
     # Highlight the window with a colored border.
     border:
       enabled: true
-      color: "#0000ff"
+      color_focused: "#0000ff"
+      color_other: "#d3d3d3"
 
-  # Visual effects to apply to non-focused windows.
-  other_windows:
+  # Visual effects to apply to floating windows.
+  floating_windows:
     border:
       enabled: false
-      color: "#d3d3d3"
+      color_focused: "#0000ff"
+      color_other: "#d3d3d3"
 ```
 
 ### Config: Window behavior
